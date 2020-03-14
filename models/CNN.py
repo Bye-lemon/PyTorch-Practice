@@ -70,11 +70,11 @@ class VGG16(nn.Module):
         )
         self.classifier = nn.Sequential(
             nn.Linear(in_features=7 * 7 * 512, out_features=4096),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(in_features=4096, out_features=4096),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(in_features=4096, out_features=1000),
-            nn.ReLU()
+            nn.ReLU(inplace=True)
         )
 
     def forward(self, x):
@@ -97,11 +97,11 @@ class VGG19(nn.Module):
         )
         self.classifier = nn.Sequential(
             nn.Linear(in_features=7 * 7 * 512, out_features=4096),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(in_features=4096, out_features=4096),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(in_features=4096, out_features=1000),
-            nn.ReLU()
+            nn.ReLU(inplace=True)
         )
 
     def forward(self, x):
@@ -159,10 +159,10 @@ class _Inception_Auxiliary(nn.Module):
         )
         self.classifier = nn.Sequential(
             nn.Linear(in_features=2048, out_features=1024),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Dropout(),
             nn.Linear(in_features=1024, out_features=num_classes),
-            nn.ReLU()
+            nn.ReLU(inplace=True)
         )
 
     def forward(self, x):
@@ -235,9 +235,11 @@ class GoogLeNet(nn.Module):
 class _ResUnit2L(nn.Module):
     def __init__(self, in_channels, out_channels, aux=False, **kwargs):
         super(_ResUnit2L, self).__init__()
-        self.conv1 = _BasicConv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1, **kwargs)
+        self.conv1 = _BasicConv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1,
+                                  **kwargs)
         self.conv2 = _BasicConv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=3, padding=1)
-        self.aux_conv = _BasicConv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, **kwargs) if aux else None
+        self.aux_conv = _BasicConv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1,
+                                     **kwargs) if aux else None
 
     def forward(self, x):
         oral = x
@@ -290,5 +292,76 @@ class ResNet34(nn.Module):
         x = self.conv5(x)
         x = self.avg_pool(x)
         x = x.view(-1, 512)
+        x = self.classifier(x)
+        return F.softmax(x, dim=0)
+
+
+class _DenseLayer(nn.Sequential):
+    def __init__(self, in_channels, growth_rate, batch_size):
+        super(_DenseLayer, self).__init__()
+        self.add_module(f"bn1", nn.BatchNorm2d(num_features=in_channels))
+        self.add_module(f"relu1", nn.ReLU(inplace=True))
+        self.add_module("conv1",
+                        nn.Conv2d(in_channels=in_channels, out_channels=growth_rate * batch_size, kernel_size=1))
+        self.add_module(f"bn2", nn.BatchNorm2d(num_features=growth_rate * batch_size))
+        self.add_module(f"relu2", nn.ReLU(inplace=True))
+        self.add_module(f"conv2",
+                        nn.Conv2d(in_channels=growth_rate * batch_size, out_channels=growth_rate, kernel_size=3,
+                                  padding=1))
+
+    def forward(self, x):
+        out = super(_DenseLayer, self).forward(x)
+        return torch.cat([x, out], dim=1)
+
+
+class _DenseBlock(nn.Sequential):
+    def __init__(self, in_channels, growth_rate, batch_size, num_layers):
+        super(_DenseBlock, self).__init__()
+        for i in range(num_layers):
+            self.add_module(f"Layer{i}",
+                            _DenseLayer(in_channels=in_channels + growth_rate * i,
+                                        growth_rate=growth_rate, batch_size=batch_size))
+
+
+class _Transition(nn.Sequential):
+    def __init__(self, in_channels):
+        super(_Transition, self).__init__()
+        self.add_module(f"bn", nn.BatchNorm2d(num_features=in_channels))
+        self.add_module(f"relu", nn.ReLU(inplace=True))
+        self.add_module(f"conv", nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=1))
+        self.add_module(f"avg_pool", nn.AvgPool2d(kernel_size=2, stride=2))
+
+
+class DenseNet121(nn.Module):
+    def __init__(self, batch_size=4, growth_rate=12):
+        super(DenseNet121, self).__init__()
+        self.growth_rate = growth_rate
+        self.conv1 = nn.Sequential(
+            nn.BatchNorm2d(num_features=3),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=3)
+        )
+        self.pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.dense1 = _DenseBlock(in_channels=64, growth_rate=growth_rate, batch_size=batch_size, num_layers=6)
+        self.trans1 = _Transition(in_channels=64 + 6 * growth_rate)
+        self.dense2 = _DenseBlock(in_channels=64 + 6 * growth_rate, growth_rate=growth_rate, batch_size=batch_size,
+                                  num_layers=12)
+        self.trans2 = _Transition(in_channels=64 + 18 * growth_rate)
+        self.dense3 = _DenseBlock(in_channels=64 + 18 * growth_rate, growth_rate=growth_rate, batch_size=batch_size,
+                                  num_layers=24)
+        self.trans3 = _Transition(in_channels=64 + 42 * growth_rate)
+        self.dense4 = _DenseBlock(in_channels=64 + 42 * growth_rate, growth_rate=growth_rate, batch_size=batch_size,
+                                  num_layers=16)
+        self.dense = nn.Sequential(
+            self.dense1, self.trans1, self.dense2, self.trans2, self.dense3, self.trans3, self.dense4
+        )
+        self.avg_pool = nn.AvgPool2d(kernel_size=7)
+        self.classifier = nn.Linear(in_features=64+58*growth_rate, out_features=1000)
+
+    def forward(self, x):
+        x = self.pool(self.conv1(x))
+        x = self.dense(x)
+        x = self.avg_pool(x)
+        x = x.view(-1, 64+58*self.growth_rate)
         x = self.classifier(x)
         return F.softmax(x, dim=0)

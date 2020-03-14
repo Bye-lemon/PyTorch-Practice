@@ -57,3 +57,14 @@ class TestResNet34(TestCase):
             y = self.net(x)
         except:
             self.fail()
+
+
+class TestDenseNet121(TestCase):
+    def test_forward(self):
+        try:
+            self.net = DenseNet121()
+            x = torch.rand(4, 3, 224, 224)
+            x = torch.autograd.Variable(x)
+            y = self.net(x)
+        except:
+            self.fail()
