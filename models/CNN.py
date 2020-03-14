@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+WATCH = lambda x: print(x.shape)
+
 
 class AlexNet(nn.Module):
     def __init__(self):
@@ -79,7 +81,7 @@ class VGG16(nn.Module):
         x = self.features(x)
         x = x.view(-1, 7 * 7 * 512)
         x = self.classifier(x)
-        x = F.softmax(x, dim=1000)
+        x = F.softmax(x, dim=0)
         return x
 
 
@@ -106,7 +108,7 @@ class VGG19(nn.Module):
         x = self.features(x)
         x = x.view(-1, 7 * 7 * 512)
         x = self.classifier(x)
-        x = F.softmax(x, dim=1000)
+        x = F.softmax(x, dim=0)
         return x
 
 
@@ -167,7 +169,7 @@ class _Inception_Auxiliary(nn.Module):
         x = self.conv(x)
         x = x.view(-1, 2048)
         x = self.classifier(x)
-        return F.softmax(x)
+        return F.softmax(x, dim=0)
 
 
 class GoogLeNet(nn.Module):
@@ -226,6 +228,67 @@ class GoogLeNet(nn.Module):
         x = self.inception5(x)
         x = x.view(-1, 1024)
         x = self.classifier(x)
-        x = F.softmax(x)
+        x = F.softmax(x, dim=0)
         return aux1, aux2, x
 
+
+class _ResUnit2L(nn.Module):
+    def __init__(self, in_channels, out_channels, aux=False, **kwargs):
+        super(_ResUnit2L, self).__init__()
+        self.conv1 = _BasicConv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1, **kwargs)
+        self.conv2 = _BasicConv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=3, padding=1)
+        self.aux_conv = _BasicConv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, **kwargs) if aux else None
+
+    def forward(self, x):
+        oral = x
+        x = self.conv2(self.conv1(x))
+        if self.aux_conv is not None:
+            oral = self.aux_conv(oral)
+        x += oral
+        return x
+
+
+class ResNet34(nn.Module):
+    def __init__(self):
+        super(ResNet34, self).__init__()
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=3),
+            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)
+        )
+        self.conv2 = nn.Sequential(
+            _ResUnit2L(in_channels=64, out_channels=64),
+            _ResUnit2L(in_channels=64, out_channels=64),
+            _ResUnit2L(in_channels=64, out_channels=64)
+        )
+        self.conv3 = nn.Sequential(
+            _ResUnit2L(in_channels=64, out_channels=128, aux=True, stride=2),
+            _ResUnit2L(in_channels=128, out_channels=128),
+            _ResUnit2L(in_channels=128, out_channels=128),
+            _ResUnit2L(in_channels=128, out_channels=128)
+        )
+        self.conv4 = nn.Sequential(
+            _ResUnit2L(in_channels=128, out_channels=256, aux=True, stride=2),
+            _ResUnit2L(in_channels=256, out_channels=256),
+            _ResUnit2L(in_channels=256, out_channels=256),
+            _ResUnit2L(in_channels=256, out_channels=256),
+            _ResUnit2L(in_channels=256, out_channels=256),
+            _ResUnit2L(in_channels=256, out_channels=256)
+        )
+        self.conv5 = nn.Sequential(
+            _ResUnit2L(in_channels=256, out_channels=512, aux=True, stride=2),
+            _ResUnit2L(in_channels=512, out_channels=512),
+            _ResUnit2L(in_channels=512, out_channels=512)
+        )
+        self.avg_pool = nn.AvgPool2d(kernel_size=7)
+        self.classifier = nn.Linear(in_features=512, out_features=1000)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = self.conv5(x)
+        x = self.avg_pool(x)
+        x = x.view(-1, 512)
+        x = self.classifier(x)
+        return F.softmax(x, dim=0)
