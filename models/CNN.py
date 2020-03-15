@@ -41,7 +41,7 @@ class AlexNet(nn.Module):
         x = x.view(-1, 6 * 6 * 256)
         x = self.dropout4(self.bn6(torch.relu(self.fc1(x))))
         x = self.dropout5(self.bn7(torch.relu(self.fc2(x))))
-        x = F.softmax(self.fc3(x))
+        x = F.softmax(self.fc3(x), dim=0)
         return x
 
 
