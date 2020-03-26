@@ -356,12 +356,104 @@ class DenseNet121(nn.Module):
             self.dense1, self.trans1, self.dense2, self.trans2, self.dense3, self.trans3, self.dense4
         )
         self.avg_pool = nn.AvgPool2d(kernel_size=7)
-        self.classifier = nn.Linear(in_features=64+58*growth_rate, out_features=1000)
+        self.classifier = nn.Linear(in_features=64 + 58 * growth_rate, out_features=1000)
 
     def forward(self, x):
         x = self.pool(self.conv1(x))
         x = self.dense(x)
         x = self.avg_pool(x)
-        x = x.view(-1, 64+58*self.growth_rate)
+        x = x.view(-1, 64 + 58 * self.growth_rate)
         x = self.classifier(x)
         return F.softmax(x, dim=0)
+
+
+class ChannelAttention(nn.Module):
+    def __init__(self, channels, ratio=16):
+        super(ChannelAttention, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(output_size=1)
+        self.max_pool = nn.AdaptiveMaxPool2d(output_size=1)
+        self.mlp = nn.Sequential(
+            nn.Conv2d(in_channels=channels, out_channels=channels // ratio, kernel_size=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=channels // ratio, out_channels=channels, kernel_size=1)
+        )
+
+    def forward(self, x):
+        avg_out = self.avg_pool(x)
+        avg_out = self.mlp(avg_out)
+        max_out = self.max_pool(x)
+        max_out = self.mlp(max_out)
+        return F.sigmoid(avg_out + max_out)
+
+
+class SpatialAttention(nn.Module):
+    def __init__(self, **kwargs):
+        super(SpatialAttention, self).__init__()
+        self.conv = nn.Conv2d(in_channels=2, out_channels=1, **kwargs)
+
+    def forward(self, x):
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        out = torch.cat([avg_out, max_out], dim=1)
+        out = self.conv(out)
+        return F.sigmoid(out)
+
+
+class CBAMConv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, ratio=16, **kwargs):
+        super(CBAMConv2d, self).__init__()
+        self.conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, **kwargs)
+        self.ca = ChannelAttention(channels=out_channels, ratio=ratio)
+        self.sa = SpatialAttention(kernel_size=7, padding=3)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x *= self.ca(x)
+        x *= self.sa(x)
+        return x
+
+
+class ChannelGate(nn.Module):
+    def __init__(self, channels, ratio=16):
+        super(ChannelGate, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(output_size=1)
+        self.mlp = nn.Sequential(
+            nn.Conv2d(in_channels=channels, out_channels=channels // ratio, kernel_size=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=channels // ratio, out_channels=channels, kernel_size=1)
+        )
+        self.bn = nn.BatchNorm2d(num_features=channels)
+
+    def forward(self, x):
+        return self.bn(self.mlp(self.avg_pool(x)))
+
+
+class SpatialGate(nn.Module):
+    def __init__(self, channels, ratio):
+        super(SpatialGate, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels=channels, out_channels=channels // ratio, kernel_size=1),
+            nn.Conv2d(in_channels=channels // ratio, out_channels=channels // ratio, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=channels // ratio, out_channels=channels // ratio, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=channels // ratio, out_channels=1, kernel_size=1)
+        )
+        self.bn = nn.BatchNorm2d(num_features=1)
+
+    def forward(self, x):
+        return self.bn(self.conv(x))
+
+
+class BAMConv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, ratio=16, **kwargs):
+        super(BAMConv2d, self).__init__()
+        self.conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, **kwargs)
+        self.cg = ChannelGate(channels=out_channels, ratio=ratio)
+        self.sg = SpatialGate(channels=out_channels, ratio=ratio)
+
+    def forward(self, x):
+        out = self.conv(x)
+        cg_out = self.cg(x)
+        sg_out = self.sg(x)
+        att = F.sigmoid(sg_out.repeat(1, cg_out.shape[1]) + cg_out)
+        out *= 1 + att
+        return out
