@@ -451,9 +451,9 @@ class BAMConv2d(nn.Module):
         self.sg = SpatialGate(channels=out_channels, ratio=ratio)
 
     def forward(self, x):
-        out = self.conv(x)
+        x = self.conv(x)
         cg_out = self.cg(x)
         sg_out = self.sg(x)
         att = F.sigmoid(sg_out.repeat(1, cg_out.shape[1]) + cg_out)
-        out *= 1 + att
-        return out
+        x *= 1 + att
+        return x
