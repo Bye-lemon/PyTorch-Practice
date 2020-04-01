@@ -1,6 +1,33 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
+
+WATCH = lambda x: print(x.shape)
+
+
+class Dictionary(object):
+    def __init__(self):
+        super(Dictionary, self).__init__()
+        self.word2idx = dict({})
+        self.idx2word = []
+        self.length = 0
+
+    def __len__(self):
+        return len(self.idx2word)
+
+    def add_word(self, word):
+        if word not in self.idx2word:
+            self.idx2word.append(word)
+            self.word2idx[word] = self.length
+            self.length += 1
+        return self.word2idx[word]
+
+    def onehot_encoded(self, word):
+        vec = np.zeros(self.length)
+        vec[self.word2idx[word]] = 1
+        return vec
+
 
 
 class LSTM(nn.Module):
