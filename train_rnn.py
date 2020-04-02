@@ -48,6 +48,7 @@ LOG(f"[MODEL]  Build model complete.")
 # Train
 if MODE == "train":
     for epoch in range(EPOCH):
+        loss_meter.reset()
         for index, data in tqdm.tqdm(enumerate(dataloader, 0)):
             data = data.long().contiguous().to(device)
 
