@@ -29,6 +29,35 @@ class Dictionary(object):
         return vec
 
 
+class RNN(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, num_layers, target="lstm", bidirectional=False):
+        super(RNN, self).__init__()
+        self.net = {"rnn": nn.RNN, "lstm": nn.LSTM, "gru": nn.GRU}.get(target)
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.rnn = self.net(input_size=embedding_dim, hidden_size=hidden_dim, num_layers=num_layers, batch_first=True,
+                            bidirectional=bidirectional)
+        self.fc = nn.Linear(in_features=hidden_dim, out_features=vocab_size)
+
+    def forward(self, x, state=None):
+        hidden = state if state is not None else self._init_state(x)
+        batch_size, sequence_length = x.size()
+        x = self.embedding(x)
+        x, _ = self.rnn(x, hidden)
+        x = x.reshape(batch_size*sequence_length, -1)
+        x = self.fc(x)
+        return x, _
+
+    def _init_state(self, x):
+        if self.net is nn.RNN:
+            return x.data.new(self.num_layers, x.shape[0], self.hidden_dim).fill_(0).float()
+        elif self.net is nn.LSTM:
+            return (
+                x.data.new(self.num_layers, x.shape[0], self.hidden_dim).fill_(0).float(),
+                x.data.new(self.num_layers, x.shape[0], self.hidden_dim).fill_(0).float()
+            )
+
 
 class LSTM(nn.Module):
     def __init__(self, sequence_length, embedding_dim, hidden_dim, output_dim, embedding, batch_size,
@@ -62,4 +91,3 @@ class LSTM(nn.Module):
             weight.new(self.num_layers, batch_size, self.hidden_dim).zero_(),
             weight.new(self.num_layers, batch_size, self.hidden_dim).zero_()
         )
-
