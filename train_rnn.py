@@ -22,7 +22,7 @@ MAX_GENERIC_SEQUENCE_LENGTH = 64
 LOG_STEP = 40
 MODE = "train"
 DATA_PATH = "data/tang.npz"
-MODEL_PATH = "logs/Epoch_3.pth"
+MODEL_PATH = "logs/Epoch_1_AvgLoss1.630090728832619.pth"
 LOG_PATH = "logs/"
 
 # Device Settings
@@ -64,7 +64,7 @@ if MODE == "train":
             if (index + 1) % LOG_STEP == 0:
                 print(f"Epoch {epoch + 1} Batch {index + 1} Average loss {loss_meter.value()[0]}")
 
-        torch.save(model.state_dict(), op.join(LOG_PATH, f"Epoch_{epoch}_AvgLoss{loss_meter.value()[0]}.pth"))
+        torch.save(model.state_dict(), op.join(LOG_PATH, f"Epoch_{epoch}_AvgLoss_{loss_meter.value()[0]}.pth"))
 
 
 # Interface Settings
