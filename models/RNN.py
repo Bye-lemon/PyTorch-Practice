@@ -50,13 +50,13 @@ class RNN(nn.Module):
         return x, _
 
     def _init_state(self, x):
-        if self.net is nn.RNN:
-            return x.data.new(self.num_layers, x.shape[0], self.hidden_dim).fill_(0).float()
-        elif self.net is nn.LSTM:
+        if self.net is nn.LSTM:
             return (
                 x.data.new(self.num_layers, x.shape[0], self.hidden_dim).fill_(0).float(),
                 x.data.new(self.num_layers, x.shape[0], self.hidden_dim).fill_(0).float()
             )
+        else:
+            return x.data.new(self.num_layers, x.shape[0], self.hidden_dim).fill_(0).float()
 
 
 class LSTM(nn.Module):
