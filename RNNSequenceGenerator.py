@@ -20,9 +20,9 @@ BATCH_SIZE = 32
 MAX_SEQUENCE_LENGTH = 125
 MAX_GENERIC_SEQUENCE_LENGTH = 64
 LOG_STEP = 40
-MODE = "train"
+MODE = "interface"
 DATA_PATH = "data/tang.npz"
-MODEL_PATH = "logs/Epoch_1_AvgLoss1.630090728832619.pth"
+MODEL_PATH = None
 LOG_PATH = "logs/"
 
 # Device Settings
