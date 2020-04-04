@@ -36,9 +36,9 @@ transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 trainset = torchvision.datasets.CIFAR10(root=DATA_PATH, train=True, download=DOWNLOAD_CIFAR10, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=4, shuffle=True)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=BATCH_SIZE, shuffle=True)
 testset = torchvision.datasets.CIFAR10(root=DATA_PATH, train=False, download=DOWNLOAD_CIFAR10, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=4, shuffle=False)
+testloader = torch.utils.data.DataLoader(testset, batch_size=BATCH_SIZE, shuffle=False)
 LOG(f"[DATA]   Finished loading data.")
 
 # Model Definition
