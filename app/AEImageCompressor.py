@@ -23,9 +23,9 @@ LEARNING_RATE = 0.0045
 DOWNLOAD_CIFAR10 = False
 LOG_STEP = 1000
 MODE = "test"
-DATA_PATH = "data/"
-MODEL_PATH = "logs/AE/Epoch_13_AvgLoss_0.009554789398890044.pth"
-LOG_PATH = "logs/AE/"
+DATA_PATH = "../data/"
+MODEL_PATH = "../logs/AE/Epoch_13_AvgLoss_0.009554789398890044.pth"
+LOG_PATH = "../logs/AE/"
 
 # Device Settings
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")

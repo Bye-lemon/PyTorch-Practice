@@ -7,7 +7,7 @@ import time
 import tqdm
 
 from models.CNN import *
-from dataset import MyDataSet
+from utils.dataset import MyDataSet
 
 # Hyper Parameters
 EPOCH = 8
@@ -18,7 +18,7 @@ SPLIT_RATE = 0.08
 LOG_STEP = 100
 MODE = "train"
 MODEL_PATH = None
-LOG_PATH = "logs/"
+LOG_PATH = "../logs/"
 
 # Load Data
 transforms = transforms.Compose([

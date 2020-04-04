@@ -21,9 +21,9 @@ MAX_SEQUENCE_LENGTH = 125
 MAX_GENERIC_SEQUENCE_LENGTH = 64
 LOG_STEP = 40
 MODE = "interface"
-DATA_PATH = "data/tang.npz"
+DATA_PATH = "../data/tang.npz"
 MODEL_PATH = None
-LOG_PATH = "logs/"
+LOG_PATH = "../logs/"
 
 # Device Settings
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
