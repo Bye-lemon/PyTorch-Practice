@@ -11,7 +11,7 @@ class TestAutoEncoder(TestCase):
     def setUpClass(cls):
         cls.ae = AutoEncoder()
         cls.encoder = nn.Sequential(
-            nn.Linear(3*32*32, 256),
+            nn.Linear(3 * 32 * 32, 256),
             nn.Tanh(),
             nn.Linear(256, 64),
             nn.Tanh(),
@@ -27,7 +27,7 @@ class TestAutoEncoder(TestCase):
             nn.Tanh(),
             nn.Linear(64, 256),
             nn.Tanh(),
-            nn.Linear(256, 3*32*32),
+            nn.Linear(256, 3 * 32 * 32),
             nn.Sigmoid()
         )
         cls.input = torch.randn(16, 3, 32, 32)
@@ -48,4 +48,17 @@ class TestAutoEncoder(TestCase):
             assert input_.shape == self.ae(input_).shape
         except AssertionError as e:
             print(e)
+            self.fail()
+
+
+class TestVariationalAutoEncoder(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.vae = VariationalAutoEncoder(latent_dim=128)
+        cls.input = torch.randn(16, 3, 32, 32)
+
+    def test_forward(self):
+        try:
+            assert self.input.shape == self.vae(self.input)[0].shape
+        except AssertionError as e:
             self.fail()
